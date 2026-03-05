@@ -142,7 +142,7 @@ export function extractToolDetail() {
 
   const jsonLdData: unknown[] = [];
   for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
-    try { jsonLdData.push(JSON.parse(script.textContent || "")); } catch (_e) { /* skip */ }
+    try { jsonLdData.push(JSON.parse(script.textContent || "")); } catch { /* skip */ }
   }
   data.json_ld = JSON.stringify(jsonLdData);
 

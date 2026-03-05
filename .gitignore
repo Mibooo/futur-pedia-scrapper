@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.csv
+*.json
+!package.json
+!tsconfig.json
+!eslint.config.mjs
