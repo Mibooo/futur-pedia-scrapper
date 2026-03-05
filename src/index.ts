@@ -1,0 +1,115 @@
+import { chromium } from "playwright";
+import fs from "fs";
+import type { ToolListing } from "./types";
+import {
+  OUTPUT_FILE,
+  DETAIL_OUTPUT_FILE,
+  LISTING_CONCURRENCY,
+  DETAIL_CONCURRENCY,
+  SCRAPE_DETAILS,
+  BATCH_SIZE,
+  MAX_RETRIES,
+  USER_AGENTS,
+  CSV_FIELDS,
+} from "./config/constants";
+import { createStats } from "./services/stats";
+import { discoverCategories } from "./services/categoryDiscovery";
+import { printDashboard, printSummary } from "./services/dashboard";
+import { scrapeCategory, scrapeToolDetail } from "./services/scraper";
+import { createSemaphore } from "./utils/semaphore";
+import { shuffleArray, pickRandom } from "./utils/helpers";
+import { writeCsv } from "./utils/csv";
+
+async function main(): Promise<void> {
+  const stats = createStats();
+  const allTools: ToolListing[] = [];
+  const seenUrls = new Set<string>();
+
+  console.log(`\n  FUTUREPEDIA.IO AI TOOLS SCRAPER\n`);
+
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+  });
+  const context = await browser.newContext({
+    userAgent: pickRandom(USER_AGENTS),
+    viewport: { width: 1280, height: 900 },
+  });
+
+  // Phase 0: Discover categories dynamically
+  stats.phase = "discovery";
+  const categories = await discoverCategories(context);
+  stats.categoriesTotal = Object.keys(categories).length;
+
+  console.log(
+    `  ${stats.categoriesTotal} subcategories | ${LISTING_CONCURRENCY} listing workers | ${DETAIL_CONCURRENCY} detail workers | retries: ${MAX_RETRIES}\n`,
+  );
+
+  const dashboardInterval = setInterval(() => printDashboard(stats), 250);
+
+  try {
+    // Phase 1: Listing pages
+    stats.phase = "listings";
+    const listingSem = createSemaphore(LISTING_CONCURRENCY);
+    const catItems = shuffleArray(Object.entries(categories));
+
+    const listingPromises = catItems.map(async ([slug, category]) => {
+      await listingSem.acquire();
+      try {
+        const tools = await scrapeCategory(context, slug, category, seenUrls, stats);
+        allTools.push(...tools);
+      } finally {
+        listingSem.release();
+      }
+    });
+
+    await Promise.all(listingPromises);
+
+    // Deduplicate
+    const unique = new Map<string, ToolListing>();
+    for (const t of allTools) {
+      if (t.url) unique.set(t.url, t);
+    }
+    const toolsList = [...unique.values()].sort((a, b) => a.category.localeCompare(b.category));
+
+    // Phase 2: Detail pages
+    if (SCRAPE_DETAILS && toolsList.length) {
+      stats.phase = "details";
+      stats.detailsTotal = toolsList.length;
+
+      const detailSem = createSemaphore(DETAIL_CONCURRENCY);
+
+      for (let i = 0; i < toolsList.length; i += BATCH_SIZE) {
+        const batch = toolsList.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map((tool) => scrapeToolDetail(context, tool, detailSem, stats)));
+      }
+    }
+
+    stats.phase = "saving";
+  } finally {
+    clearInterval(dashboardInterval);
+    await context.close();
+    await browser.close();
+  }
+
+  // Final dedup
+  const finalUnique = new Map<string, ToolListing>();
+  for (const t of allTools) {
+    if (t.url) finalUnique.set(t.url, t);
+  }
+  const finalTools = [...finalUnique.values()].sort((a, b) => a.category.localeCompare(b.category));
+
+  // Write outputs
+  stats.phase = "done";
+  writeCsv(OUTPUT_FILE, CSV_FIELDS, finalTools);
+  fs.writeFileSync(DETAIL_OUTPUT_FILE, JSON.stringify(finalTools, null, 2), "utf-8");
+
+  console.log(`  CSV output:        ${OUTPUT_FILE}`);
+  console.log(`  JSON output:       ${DETAIL_OUTPUT_FILE}`);
+  printSummary(stats, finalTools.length);
+}
+
+main().catch((err) => {
+  console.error("Fatal error:", err);
+  process.exit(1);
+});
