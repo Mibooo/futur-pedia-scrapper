@@ -19,9 +19,15 @@ import { createSemaphore } from "./utils/semaphore";
 import { shuffleArray, pickRandom } from "./utils/helpers";
 import { writeCsv } from "./utils/csv";
 
+function saveProgress(tools: ToolListing[]): void {
+  writeCsv(OUTPUT_FILE, CSV_FIELDS, tools);
+  fs.writeFileSync(DETAIL_OUTPUT_FILE, JSON.stringify(tools, null, 2), "utf-8");
+}
+
 async function main(): Promise<void> {
   const stats = createStats();
   const allTools: ToolListing[] = [];
+  let toolsList: ToolListing[] = [];
   const seenUrls = new Set<string>();
 
   const browser = await chromium.launch({
@@ -66,7 +72,10 @@ async function main(): Promise<void> {
     for (const t of allTools) {
       if (t.url) unique.set(t.url, t);
     }
-    const toolsList = [...unique.values()].sort((a, b) => a.category.localeCompare(b.category));
+    toolsList = [...unique.values()].sort((a, b) => a.category.localeCompare(b.category));
+
+    // Save after listings phase
+    saveProgress(toolsList);
 
     // Phase 2: Detail pages
     if (SCRAPE_DETAILS && toolsList.length) {
@@ -78,6 +87,7 @@ async function main(): Promise<void> {
       for (let i = 0; i < toolsList.length; i += BATCH_SIZE) {
         const batch = toolsList.slice(i, i + BATCH_SIZE);
         await Promise.all(batch.map((tool) => scrapeToolDetail(context, tool, detailSem, stats)));
+        saveProgress(toolsList);
       }
     }
 
@@ -89,19 +99,11 @@ async function main(): Promise<void> {
     await browser.close();
   }
 
-  // Final dedup
-  const finalUnique = new Map<string, ToolListing>();
-  for (const t of allTools) {
-    if (t.url) finalUnique.set(t.url, t);
-  }
-  const finalTools = [...finalUnique.values()].sort((a, b) => a.category.localeCompare(b.category));
-
-  // Write outputs
+  // Write final outputs
   stats.phase = "done";
-  writeCsv(OUTPUT_FILE, CSV_FIELDS, finalTools);
-  fs.writeFileSync(DETAIL_OUTPUT_FILE, JSON.stringify(finalTools, null, 2), "utf-8");
+  saveProgress(toolsList);
 
-  printSummary(stats, finalTools.length, OUTPUT_FILE, DETAIL_OUTPUT_FILE);
+  printSummary(stats, toolsList.length, OUTPUT_FILE, DETAIL_OUTPUT_FILE);
 }
 
 main().catch((err) => {

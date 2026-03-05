@@ -31,6 +31,21 @@ export async function blockResources(route: Route): Promise<void> {
   }
 }
 
+export function createRouteHandler(userAgent: string) {
+  return async (route: Route): Promise<void> => {
+    if (BLOCKED_TYPES.has(route.request().resourceType())) {
+      await route.abort();
+    } else {
+      await route.continue({
+        headers: {
+          ...route.request().headers(),
+          "user-agent": userAgent,
+        },
+      });
+    }
+  };
+}
+
 export async function smartScroll(page: Page): Promise<void> {
   let prevHeight = 0;
   for (let i = 0; i < MAX_SCROLLS; i++) {
@@ -47,16 +62,19 @@ export async function gotoWithRetry(
   url: string,
   retries: number = MAX_RETRIES,
   stats: Stats | null = null,
+  waitSelector?: string,
 ): Promise<boolean> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const resp = await page.goto(url, { waitUntil: "load", timeout: 45_000 });
       if (resp && resp.status() === 404) return false;
 
-      try {
-        await page.waitForSelector('a[href*="/tool/"]', { timeout: 8_000 });
-      } catch {
-        // Page loaded but no tool cards yet
+      if (waitSelector) {
+        try {
+          await page.waitForSelector(waitSelector, { timeout: 8_000 });
+        } catch {
+          // Page loaded but selector not found
+        }
       }
       await page.waitForTimeout(1000);
       return true;

@@ -1,8 +1,8 @@
 import type { BrowserContext } from "playwright";
 import type { Stats, Semaphore, ToolListing } from "../types";
-import { BASE_URL, MAX_PAGES } from "../config/constants";
+import { BASE_URL, MAX_PAGES, USER_AGENTS, MAX_RETRIES } from "../config/constants";
 import { extractListingCards, extractToolDetail } from "../config/extractors";
-import { blockResources, smartScroll, gotoWithRetry, sleep, randomBetween } from "../utils/helpers";
+import { createRouteHandler, pickRandom, smartScroll, gotoWithRetry, sleep, randomBetween } from "../utils/helpers";
 
 export async function scrapeCategory(
   context: BrowserContext,
@@ -17,10 +17,10 @@ export async function scrapeCategory(
   stats.addWorker(slug);
 
   const page = await context.newPage();
-  await page.route("**/*", blockResources);
+  await page.route("**/*", createRouteHandler(pickRandom(USER_AGENTS)));
 
   try {
-    const ok = await gotoWithRetry(page, url, undefined, stats);
+    const ok = await gotoWithRetry(page, url, undefined, stats, 'a[href*="/tool/"]');
     if (!ok) {
       stats.addError(`[${slug}] 404 or failed to load`);
       return tools;
@@ -90,7 +90,7 @@ export async function scrapeCategory(
     } else {
       const nextUrl = `${BASE_URL}/ai-tools/${slug}?page=${pageNum + 1}`;
       try {
-        const ok = await gotoWithRetry(page, nextUrl, 1, stats);
+        const ok = await gotoWithRetry(page, nextUrl, 1, stats, 'a[href*="/tool/"]');
         if (!ok) break;
         pageNum++;
       } catch {
@@ -121,11 +121,11 @@ export async function scrapeToolDetail(
 
   await sem.acquire();
   const page = await context.newPage();
-  await page.route("**/*", blockResources);
+  await page.route("**/*", createRouteHandler(pickRandom(USER_AGENTS)));
 
   try {
-    await page.goto(tool.url, { waitUntil: "load", timeout: 40_000 });
-    await page.waitForTimeout(1200);
+    const ok = await gotoWithRetry(page, tool.url, MAX_RETRIES, stats);
+    if (!ok) throw new Error("404 or failed to load");
     await smartScroll(page);
 
     const detail = await page.evaluate(extractToolDetail);
