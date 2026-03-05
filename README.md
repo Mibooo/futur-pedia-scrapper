@@ -1,15 +1,15 @@
 # Futurepedia Scraper
 
-Scraper TypeScript qui extrait tous les outils IA listés sur [futurepedia.io](https://www.futurepedia.io) via Playwright (rendu JS).
+TypeScript scraper that extracts all AI tool listings from [futurepedia.io](https://www.futurepedia.io) using Playwright for JS-rendered content.
 
-## Fonctionnement
+## How it works
 
-1. **Découverte** — Scrape automatiquement toutes les catégories/sous-catégories depuis la page `/ai-tools`
-2. **Listings** — Parcourt chaque sous-catégorie, scroll et pagine pour collecter toutes les fiches outils
-3. **Détails** — Visite chaque page outil pour extraire les infos complètes (description, prix, avis, liens sociaux, etc.)
-4. **Export** — Génère un CSV et un JSON dédupliqués
+1. **Discovery** — Automatically scrapes all categories/subcategories from the `/ai-tools` page
+2. **Listings** — Crawls each subcategory, scrolls and paginates to collect all tool cards
+3. **Details** — Visits each tool's detail page to extract full data (description, pricing, reviews, social links, etc.)
+4. **Export** — Outputs deduplicated CSV and JSON files
 
-## Prérequis
+## Prerequisites
 
 - Node.js >= 18
 
@@ -20,59 +20,59 @@ npm install
 npx playwright install chromium
 ```
 
-## Lancement
+## Usage
 
 ```bash
 npm start        # build + run
-npm run dev      # run directement via tsx (sans build)
+npm run dev      # run directly via tsx (no build step)
 ```
 
 ## Lint
 
 ```bash
-npm run lint       # vérifier
-npm run lint:fix   # corriger automatiquement
+npm run lint       # check
+npm run lint:fix   # auto-fix
 ```
 
-## Fichiers de sortie
+## Output files
 
-| Fichier | Contenu |
+| File | Content |
 |---|---|
-| `futurepedia_tools.csv` | Données tabulaires (28 colonnes) |
-| `futurepedia_tools_full.json` | Données complètes au format JSON |
+| `futurepedia_tools.csv` | Tabular data (28 columns) |
+| `futurepedia_tools_full.json` | Full data in JSON format |
 
-### Colonnes CSV
+### CSV columns
 
 `name`, `description`, `full_description`, `category`, `subcategory`, `tags`, `all_categories`, `pricing`, `prices_found`, `rating`, `overall_rating`, `review_count`, `rating_dimensions`, `features`, `pros`, `cons`, `official_url`, `url`, `external_url`, `logo_url`, `social_links`, `platform`, `verified`, `visit_count`, `last_updated`, `target_users`, `creator`, `badge`
 
-## Structure du projet
+## Project structure
 
 ```
 src/
-├── index.ts                    # Point d'entrée
-├── types.ts                    # Interfaces TypeScript
+├── index.ts                    # Entry point
+├── types.ts                    # TypeScript interfaces
 ├── config/
-│   ├── constants.ts            # Configuration (concurrence, timeouts, user-agents)
-│   └── extractors.ts           # Fonctions JS évaluées dans le navigateur
+│   ├── constants.ts            # Configuration (concurrency, timeouts, user-agents)
+│   └── extractors.ts           # JS functions evaluated in the browser
 ├── services/
-│   ├── categoryDiscovery.ts    # Découverte dynamique des catégories
-│   ├── scraper.ts              # Scraping des listings et des pages détail
-│   ├── stats.ts                # Suivi des stats en temps réel
-│   └── dashboard.ts            # Affichage terminal du dashboard
+│   ├── categoryDiscovery.ts    # Dynamic category discovery
+│   ├── scraper.ts              # Listing and detail page scraping
+│   ├── stats.ts                # Real-time stats tracking
+│   └── dashboard.ts            # Terminal dashboard display
 └── utils/
-    ├── semaphore.ts            # Contrôle de concurrence
-    ├── helpers.ts              # Fonctions utilitaires (scroll, retry, sleep)
-    └── csv.ts                  # Export CSV
+    ├── semaphore.ts            # Concurrency control
+    ├── helpers.ts              # Utility functions (scroll, retry, sleep)
+    └── csv.ts                  # CSV export
 ```
 
 ## Configuration
 
-Les paramètres sont dans `src/config/constants.ts` :
+Settings are in `src/config/constants.ts`:
 
-| Paramètre | Défaut | Description |
+| Parameter | Default | Description |
 |---|---|---|
-| `LISTING_CONCURRENCY` | 4 | Workers parallèles pour les pages listing |
-| `DETAIL_CONCURRENCY` | 6 | Workers parallèles pour les pages détail |
-| `SCRAPE_DETAILS` | true | Activer/désactiver le scraping des pages détail |
-| `BATCH_SIZE` | 60 | Taille des batches pour les détails |
-| `MAX_RETRIES` | 2 | Nombre de tentatives en cas d'échec |
+| `LISTING_CONCURRENCY` | 4 | Parallel workers for listing pages |
+| `DETAIL_CONCURRENCY` | 6 | Parallel workers for detail pages |
+| `SCRAPE_DETAILS` | true | Enable/disable detail page scraping |
+| `BATCH_SIZE` | 60 | Batch size for detail scraping |
+| `MAX_RETRIES` | 2 | Retry attempts on failure |
