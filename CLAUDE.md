@@ -4,10 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Single-file Python scraper that extracts AI tool listings from futurepedia.io using Playwright for JS-rendered content. It iterates through ~50 subcategory slugs, paginates through each, and outputs a deduplicated CSV (`futurepedia_tools.csv`).
+Scraper that extracts AI tool listings from futurepedia.io using Playwright for JS-rendered content. Two implementations exist: a legacy single-file Python version and the main TypeScript version.
 
 ## Setup
 
+### TypeScript (main)
+```bash
+npm install
+npx playwright install chromium
+```
+
+### Python (legacy)
 ```bash
 pip install playwright pandas
 playwright install chromium
@@ -15,17 +22,49 @@ playwright install chromium
 
 ## Running
 
+### TypeScript
+```bash
+npm run dev          # dev with tsx
+npm run start        # build + run
+npm run build        # compile TS only
+npm run lint         # eslint
+npm run lint:fix     # eslint --fix
+```
+
+Output: `futurepedia_tools.csv` + `futurepedia_tools_full.json`
+
+### Python (legacy)
 ```bash
 python main.py
 ```
 
-Output: `futurepedia_tools.csv` with columns: name, description, category, subcategory, tags, url.
+Output: `futurepedia_tools.csv`
 
 ## Architecture
 
-- **main.py** — entire scraper in one file
-  - `CATEGORIES` dict maps URL slugs to high-level category names
-  - `scrape_category()` — async function that handles one subcategory: navigates to listing page, scrolls to trigger lazy-loading, extracts tool cards (`a[href^='/tool/']`), and paginates (click-based then URL-based fallback)
-  - `main()` — launches headless Chromium via Playwright, iterates all categories, deduplicates by URL, writes CSV
-- Uses `playwright.async_api` with `asyncio.run()` entry point
-- Deduplication happens both during scraping (`seen_urls` set) and at final output (dict keyed by URL)
+### TypeScript (`src/`)
+
+- **`src/index.ts`** — entry point, orchestrates 3 phases: category discovery → listing scraping → detail scraping
+- **`src/types.ts`** — interfaces: `ToolListing`, `ToolDetail`, `RawCard`, `CategoryEntry`, `Stats`, `Semaphore`
+- **`src/config/constants.ts`** — config: URLs, concurrency limits, user agents, CSV fields
+- **`src/config/extractors.ts`** — data extraction logic from DOM
+- **`src/services/categoryDiscovery.ts`** — dynamically discovers subcategories from the site
+- **`src/services/scraper.ts`** — `scrapeCategory()` for listings, `scrapeToolDetail()` for detail pages
+- **`src/services/dashboard.ts`** — real-time terminal dashboard during scraping
+- **`src/services/stats.ts`** — stats tracking (tools found, pages scraped, errors, etc.)
+- **`src/utils/semaphore.ts`** — concurrency limiter
+- **`src/utils/csv.ts`** — CSV writer
+- **`src/utils/helpers.ts`** — `shuffleArray`, `pickRandom`
+
+Key patterns:
+- Concurrent scraping with semaphores (`LISTING_CONCURRENCY=4`, `DETAIL_CONCURRENCY=6`)
+- Batched detail scraping (`BATCH_SIZE=60`)
+- Deduplication by URL (during scraping + final pass)
+- Resource blocking (images, media, fonts) for speed
+- User-agent rotation
+
+### Python (`main.py`) — legacy
+- Single-file scraper using `playwright.async_api` with `asyncio.run()`
+- `CATEGORIES` dict maps URL slugs to category names
+- `scrape_category()` handles pagination and tool card extraction
+- Outputs deduplicated CSV only

@@ -1,7 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Node (Playwright)
 node_modules/
 dist/
+
+# Output
 *.csv
 *.json
 !package.json
+!package-lock.json
 !tsconfig.json
-!eslint.config.mjs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

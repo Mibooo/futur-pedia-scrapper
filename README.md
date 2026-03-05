@@ -1,6 +1,6 @@
 # Futurepedia Scraper
 
-Scraper Node.js qui extrait tous les outils IA listés sur [futurepedia.io](https://www.futurepedia.io) via Playwright (rendu JS).
+Scraper TypeScript qui extrait tous les outils IA listés sur [futurepedia.io](https://www.futurepedia.io) via Playwright (rendu JS).
 
 ## Fonctionnement
 
@@ -23,7 +23,15 @@ npx playwright install chromium
 ## Lancement
 
 ```bash
-npm start
+npm start        # build + run
+npm run dev      # run directement via tsx (sans build)
+```
+
+## Lint
+
+```bash
+npm run lint       # vérifier
+npm run lint:fix   # corriger automatiquement
 ```
 
 ## Fichiers de sortie
@@ -41,24 +49,25 @@ npm start
 
 ```
 src/
-├── index.js                    # Point d'entrée
+├── index.ts                    # Point d'entrée
+├── types.ts                    # Interfaces TypeScript
 ├── config/
-│   ├── constants.js            # Configuration (concurrence, timeouts, user-agents)
-│   └── extractors.js           # Scripts JS évalués dans le navigateur
+│   ├── constants.ts            # Configuration (concurrence, timeouts, user-agents)
+│   └── extractors.ts           # Fonctions JS évaluées dans le navigateur
 ├── services/
-│   ├── categoryDiscovery.js    # Découverte dynamique des catégories
-│   ├── scraper.js              # Scraping des listings et des pages détail
-│   ├── stats.js                # Suivi des stats en temps réel
-│   └── dashboard.js            # Affichage terminal du dashboard
+│   ├── categoryDiscovery.ts    # Découverte dynamique des catégories
+│   ├── scraper.ts              # Scraping des listings et des pages détail
+│   ├── stats.ts                # Suivi des stats en temps réel
+│   └── dashboard.ts            # Affichage terminal du dashboard
 └── utils/
-    ├── semaphore.js            # Contrôle de concurrence
-    ├── helpers.js              # Fonctions utilitaires (scroll, retry, sleep)
-    └── csv.js                  # Export CSV
+    ├── semaphore.ts            # Contrôle de concurrence
+    ├── helpers.ts              # Fonctions utilitaires (scroll, retry, sleep)
+    └── csv.ts                  # Export CSV
 ```
 
 ## Configuration
 
-Les paramètres sont dans `src/config/constants.js` :
+Les paramètres sont dans `src/config/constants.ts` :
 
 | Paramètre | Défaut | Description |
 |---|---|---|
