@@ -8,13 +8,12 @@ import {
   DETAIL_CONCURRENCY,
   SCRAPE_DETAILS,
   BATCH_SIZE,
-  MAX_RETRIES,
   USER_AGENTS,
   CSV_FIELDS,
 } from "./config/constants";
 import { createStats } from "./services/stats";
 import { discoverCategories } from "./services/categoryDiscovery";
-import { printDashboard, printSummary } from "./services/dashboard";
+import { printDashboard, printSummary, printBanner, initDashboard, cleanupDashboard } from "./services/dashboard";
 import { scrapeCategory, scrapeToolDetail } from "./services/scraper";
 import { createSemaphore } from "./utils/semaphore";
 import { shuffleArray, pickRandom } from "./utils/helpers";
@@ -24,8 +23,6 @@ async function main(): Promise<void> {
   const stats = createStats();
   const allTools: ToolListing[] = [];
   const seenUrls = new Set<string>();
-
-  console.log(`\n  FUTUREPEDIA.IO AI TOOLS SCRAPER\n`);
 
   const browser = await chromium.launch({
     headless: true,
@@ -41,11 +38,10 @@ async function main(): Promise<void> {
   const categories = await discoverCategories(context);
   stats.categoriesTotal = Object.keys(categories).length;
 
-  console.log(
-    `  ${stats.categoriesTotal} subcategories | ${LISTING_CONCURRENCY} listing workers | ${DETAIL_CONCURRENCY} detail workers | retries: ${MAX_RETRIES}\n`,
-  );
+  printBanner(stats.categoriesTotal);
+  initDashboard();
 
-  const dashboardInterval = setInterval(() => printDashboard(stats), 250);
+  const dashboardInterval = setInterval(() => printDashboard(stats), 200);
 
   try {
     // Phase 1: Listing pages
@@ -88,6 +84,7 @@ async function main(): Promise<void> {
     stats.phase = "saving";
   } finally {
     clearInterval(dashboardInterval);
+    cleanupDashboard();
     await context.close();
     await browser.close();
   }
@@ -104,9 +101,7 @@ async function main(): Promise<void> {
   writeCsv(OUTPUT_FILE, CSV_FIELDS, finalTools);
   fs.writeFileSync(DETAIL_OUTPUT_FILE, JSON.stringify(finalTools, null, 2), "utf-8");
 
-  console.log(`  CSV output:        ${OUTPUT_FILE}`);
-  console.log(`  JSON output:       ${DETAIL_OUTPUT_FILE}`);
-  printSummary(stats, finalTools.length);
+  printSummary(stats, finalTools.length, OUTPUT_FILE, DETAIL_OUTPUT_FILE);
 }
 
 main().catch((err) => {
